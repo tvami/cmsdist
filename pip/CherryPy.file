@@ -1,0 +1,2 @@
+Requires: py2-cheroot py2-contextlib2 py2-portend py3-portend py2-zc_lockfile
+%define PipPostBuild perl -p -i -e "s|^#!.*python.*|#!/usr/bin/env python|" %{i}/bin/*

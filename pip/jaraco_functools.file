@@ -1,0 +1,2 @@
+Requires: py2-wheel py2-backports-functools_lru_cache py2-more-itertools py3-more-itertools
+%define pip_name jaraco.functools
