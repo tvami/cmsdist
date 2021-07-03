@@ -5,13 +5,13 @@
 ## INITENV +PATH PYTHON27PATH %i/x${PYTHON_LIB_SITE_PACKAGES}
 ## INITENV +PATH PYTHON27PATH $ROOT_ROOT/lib
 
-Source0: git+https://github.com/rovere/dqmgui.git?obj=index128/%realversion&export=Monitoring&output=/Monitoring.tar.gz
-#Source0: git+:///build1/rovere/GUIDevelopment/GHM?obj=RovereDevelopment&export=Monitoring&output=/Monitoring.tar.gz
-#Source0: %{svn}?scheme=svn+ssh&strategy=export&module=Monitoring&output=/src.tar.gz
-# For documentation, please refer to http://cms-sw.github.io/pkgtools/fetching-sources.html
-Source1: git+https://github.com/cms-sw/cmssw.git?obj=CMSSW_7_6_X/CMSSW_7_6_0&export=./&filter=*DQMServices*&output=/DQMCore.tar.gz
-Source2: svn://rotoglup-scratchpad.googlecode.com/svn/trunk/rtgu/image?module=image&revision=10&scheme=http&output=/rtgu.tar.gz
-Source3: http://opensource.adobe.com/wiki/download/attachments/3866769/numeric.tar.gz
+%define tag 367e291d35a6b872a8c336327fcbca4a821732c6
+%define branch main
+
+%define github_user cms-sw
+Source0: git+https://github.com/%{github_user}/%{n}.git?obj=%{branch}/%{tag}&export=%{n}-%{realversion}&output=/%{n}-%{realversion}.tgz
+Source1: svn://rotoglup-scratchpad.googlecode.com/svn/trunk/rtgu/image?module=image&revision=10&scheme=http&output=/rtgu.tar.gz
+Source2: http://opensource.adobe.com/wiki/download/attachments/3866769/numeric.tar.gz
 Patch0: dqmgui-rtgu
 
 Requires: python yui extjs gmake pcre boost root rootjs libpng libjpeg-turbo rotatelogs py2-pycurl py2-python-cjson libuuid d3 protobuf py2-argparse py2-pytest py2-nose jemalloc
@@ -19,32 +19,16 @@ Requires: py2-CherryPy py2-Cheetah classlib-full
 
 %prep
 # Unpack sources.
-%setup -c    -T -a 1 -n stuff
-%setup -c -D -T -a 2 -n stuff/rtgu
+%setup -c -D -T -a 1 -n stuff/rtgu
 %patch0 -p1
-%setup -c -D -T -a 3 -n stuff/boost/gil/extension
+%setup -c -D -T -a 2 -n stuff/boost/gil/extension
 perl -p -i -e '/#include/ && s|\.\./\.\./|boost/gil/|' $(find . -name *.hpp)
 chmod 644 $(find . -name *.hpp)
 
-%setup -T -b 0 -n Monitoring
+%setup -T -b 0 -n %{n}-%{realversion}
 perl -p -i -e "s{<VERSION>}{%{realversion}}g" doc/*/conf.py
-sed -i -e 's|boost/gil/extension/io/jpeg_io.hpp|boost/gil/extension/io/jpeg/old.hpp|' src/cpp/DQM/serverext.cc
 # Adapt CMSSW sources to our build.
 cp -pr %_builddir/stuff/{rtgu,boost} src/cpp
-for f in DQM{Store,Error,Net}.{h,cc} MonitorElement.{h,cc} \
-         Q{Test,Report,StatisticalTests}.{h,cc} \
-         Standalone.h DQM{Channel,Definitions}.h \
-         DQMCollector.cpp ROOTFilePB.proto; do
-  dest=src/cpp/DQM/$(basename $f | sed 's/\.cpp/.cc/')
-  cp %_builddir/stuff/DQMServices/Core/*/$f $dest
-  perl -p -i -e 's{DQMServices/Core/(interface|src)/}{DQM/}g' $dest
-  perl -p -i -e 's{#include "FWCore/ServiceRegistry/interface/SystemBounds.h"}{}g' $dest
-  case $f in Standalone.h )
-    perl -p -i -e 's|(?=std::string getReleaseVersion)|inline |' $dest
-    perl -0777 -p -i -e 's|struct SystemBounds {\n(.*?)};|namespace service {\n   struct SystemBounds {\n$1};\n  }|gs' $dest ;;
-  esac
-  chmod 644 $dest
-done
 # Generate makefile fragment for externals.
 libs=". %i/128/xlib %i/128/lib"
 incs=". %i/128/xinclude %i/128/include"
