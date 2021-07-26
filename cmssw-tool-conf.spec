@@ -73,9 +73,7 @@ Requires: sherpa
 Requires: libpciaccess
 Requires: numactl
 Requires: hwloc
-%ifnarch aarch64
 Requires: gdrcopy
-%endif
 Requires: ucx
 Requires: openmpi
 Requires: sigcpp
