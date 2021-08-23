@@ -1,5 +1,4 @@
 ### RPM cms coral-tool-conf 10.0
-## NOCOMPILER
 
 Requires: python2to3
 
