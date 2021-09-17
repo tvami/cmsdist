@@ -86,7 +86,6 @@ Requires: dcap
 Requires: frontier_client
 Requires: xrootd
 Requires: dd4hep
-Requires: graphviz
 Requires: valgrind
 Requires: cmsswdata
 Requires: zstd
