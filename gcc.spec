@@ -10,10 +10,6 @@
 %define moduleName %{n}-%{realversion}
 Source0: git+https://github.com/gcc-mirror/%{n}.git?obj=%{gccBranch}/%{gccTag}&export=%{moduleName}&output=/%{n}-%{realversion}-%{gccTag}.tgz
 
-%define islinux %(case %{cmsos} in (slc*|fc*) echo 1 ;; (*) echo 0 ;; esac)
-%define isdarwin %(case %{cmsos} in (osx*) echo 1 ;; (*) echo 0 ;; esac)
-%define isamd64 %(case %{cmsplatf} in (*amd64*) echo 1 ;; (*) echo 0 ;; esac)
-
 %define keep_archives true
 
 %define gmpVersion 6.2.1
@@ -27,11 +23,11 @@ Source3: https://ftp.gnu.org/gnu/mpc/mpc-%{mpcVersion}.tar.gz
 Source4: http://isl.gforge.inria.fr/isl-%{islVersion}.tar.bz2
 Source12: http://zlib.net/zlib-%{zlibVersion}.tar.gz
 
-%if %islinux
+%ifos linux
 %define bisonVersion 3.7.6
 %define binutilsVersion 2.36.1
 %define elfutilsVersion 0.183
-%define m4Version 1.4.18
+%define m4Version 1.4.19
 %define flexVersion 2.6.4
 Source7: http://ftp.gnu.org/gnu/bison/bison-%{bisonVersion}.tar.gz
 Source8: https://sourceware.org/pub/binutils/releases/binutils-%{binutilsVersion}.tar.bz2
@@ -57,8 +53,8 @@ EOF
 %global __find_requires %{_builddir}/%{moduleName}/%{name}-req
 chmod +x %{__find_requires}
 
-%if %islinux
-%if %isamd64
+%ifos linux
+%ifarch x86_64
 # Hack needed to align sections to 4096 bytes rather than 2MB on 64bit linux
 # architectures.  This is done to reduce the amount of address space wasted by
 # relocating many libraries. This was done with a linker script before, but
@@ -99,7 +95,7 @@ EOF_CMS_H
 %setup -D -T -b 4 -n isl-%{islVersion}
 %setup -D -T -b 12 -n zlib-%{zlibVersion}
 
-%if %islinux
+%ifos linux
 %setup -D -T -b 7 -n bison-%{bisonVersion}
 %setup -D -T -b 8 -n binutils-%{binutilsVersion}
 %setup -D -T -b 9 -n elfutils-%{elfutilsVersion}
@@ -110,7 +106,7 @@ EOF_CMS_H
 %endif
 
 %build
-%if %isdarwin
+%ifarch darwin
   CC='clang'
   CXX='clang++'
   CPP='clang -E'
@@ -133,34 +129,20 @@ export PATH=%{i}/tmp/sw/bin:$PATH
 
 # Build zlib (required for compressed debug information)
 cd ../zlib-%{zlibVersion}
-case %{cmsplatf} in
-  *_amd64_*)
-    CFLAGS="-fPIC -O3 -DUSE_MMAP -DUNALIGNED_OK -D_LARGEFILE64_SOURCE=1 -msse3" \
-    ./configure --static --prefix=%{i}/tmp/sw
-    ;;
-  *_aarch64_*|*_ppc64le_*|*_ppc64_*)
-    CFLAGS="-fPIC -O3 -DUSE_MMAP -DUNALIGNED_OK -D_LARGEFILE64_SOURCE=1" \
-    ./configure --static --prefix=%{i}/tmp/sw
-    ;;
-  *)
-    ./configure --static --prefix=%{i}/tmp/sw
-    ;;
-esac
+CONF_FLAGS="-fPIC -O3 -DUSE_MMAP -DUNALIGNED_OK -D_LARGEFILE64_SOURCE=1"
+%ifarch x86_64
+CONF_FLAGS="${CONF_FLAGS} -msse3"
+%endif
+CFLAGS="${CONF_FLAGS}" ./configure --static --prefix=%{i}/tmp/sw
 make %{makeprocesses}
 make install
 
-%if %islinux
+%ifos linux
   CONF_BINUTILS_OPTS="--enable-ld=default --enable-lto --enable-plugins --enable-threads"
   CONF_GCC_WITH_LTO="--enable-ld=default --enable-lto"
 
-case "%{cmsplatf}" in
-  *_ppc64_*)
-    ;;
-  *)
-    CONF_BINUTILS_OPTS="$CONF_BINUTILS_OPTS --enable-gold=yes"
-    CONF_GCC_WITH_LTO="$CONF_GCC_WITH_LTO --enable-gold=yes"
-    ;;
-esac
+  CONF_BINUTILS_OPTS="$CONF_BINUTILS_OPTS --enable-gold=yes"
+  CONF_GCC_WITH_LTO="$CONF_GCC_WITH_LTO --enable-gold=yes"
 
   # Build M4 (for building)
   cd ../m4-%{m4Version}
@@ -206,14 +188,9 @@ esac
   make %{makeprocesses}
   make install
 
-case %{cmsplatf} in
-  *_ppc64le_*)
+%ifarch ppc64le
     CONF_BINUTILS_OPTS="${CONF_BINUTILS_OPTS} --enable-targets=spu --enable-targets=powerpc-linux"
-    ;;
-  *_ppc64_*)
-    CONF_BINUTILS_OPTS="${CONF_BINUTILS_OPTS} --enable-targets=spu"
-    ;;
-esac
+%endif
 
   # Build binutils
   cd ../binutils-%{binutilsVersion}
@@ -259,24 +236,16 @@ make %{makeprocesses}
 make install
 
 CONF_GCC_ARCH_SPEC=
-case %{cmsplatf} in
-  *_aarch64_*)
+%ifarch aarch64
     CONF_GCC_ARCH_SPEC="$CONF_GCC_ARCH_SPEC \
                         --enable-threads=posix --enable-initfini-array --disable-libmpx"
-    ;;
-  *_ppc64le_*)
+%endif
+%ifarch ppc64le
     CONF_GCC_ARCH_SPEC="$CONF_GCC_ARCH_SPEC \
                         --enable-threads=posix --enable-initfini-array \
                         --enable-targets=powerpcle-linux --enable-secureplt --with-long-double-128 \
                         --with-cpu=power8 --with-tune=power8 --disable-libmpx"
-    ;;
-  *_ppc64_*)
-    CONF_GCC_ARCH_SPEC="$CONF_GCC_ARCH_SPEC \
-                        --enable-threads=posix --enable-initfini-array \
-                        --enable-secureplt --with-long-double-128 \
-                        --with-cpu=power7 --with-tune=power7 --disable-libmpx"
-    ;;
-esac
+%endif
 
 # Build GCC
 cd ../%{moduleName}
